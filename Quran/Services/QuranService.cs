@@ -132,6 +132,270 @@ public class QuranService : IQuranService
         }
     }
 
+    public async Task<MushafLinesResponse> GetMushafLinesAsync(QuranMushafLinesRequest request)
+    {
+        try
+        {
+            _logger.LogInformation($"Processing Mushaf request: Surah {request.SurahNumber}, Page {request.PageNumber}");
+
+            // التحقق من صحة الطلب
+            if (!await ValidateMushafRequestAsync(request))
+            {
+                return new MushafLinesResponse
+                {
+                    Success = false,
+                    Message = "طلب غير صحيح - تحقق من الأرقام المدخلة"
+                };
+            }
+
+            // الحصول على البيانات الأساسية
+            var basicRequest = new QuranRequest
+            {
+                SurahNumber = request.SurahNumber,
+                HizbNumber = request.HizbNumber,
+                PageNumber = request.PageNumber,
+                Translation = request.Translation
+            };
+
+            var basicResponse = await GetQuranLinesAsync(basicRequest);
+            if (!basicResponse.Success || !basicResponse.Lines.Any())
+            {
+                return new MushafLinesResponse
+                {
+                    Success = false,
+                    Message = "لم يتم العثور على نصوص للمعايير المحددة"
+                };
+            }
+
+            // تحويل للسطور حسب المصحف
+            var mushafLines = _segmentationService.CreateMushafLines(basicResponse.Lines, request.LinesPerPage);
+
+            return new MushafLinesResponse
+            {
+                Success = true,
+                Message = "تم استرداد سطور المصحف بنجاح",
+                MushafLines = mushafLines,
+                RequestInfo = request,
+                TotalLines = mushafLines.Count,
+                TotalAyahs = basicResponse.Lines.Count
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing Mushaf lines request");
+            return new MushafLinesResponse
+            {
+                Success = false,
+                Message = "حدث خطأ أثناء معالجة طلب سطور المصحف"
+            };
+        }
+    }
+
+    public async Task<MultiTranslationResponse> GetMultiTranslationAyahAsync(MultiTranslationRequest request)
+    {
+        try
+        {
+            _logger.LogInformation($"Processing multi-translation request: Surah {request.SurahNumber}, Ayah {request.AyahNumber}");
+
+            // التحقق من صحة الطلب
+            if (!await ValidateMultiTranslationRequestAsync(request))
+            {
+                return new MultiTranslationResponse
+                {
+                    Success = false,
+                    Message = "طلب غير صحيح - تحقق من الأرقام والترجمات المدخلة"
+                };
+            }
+
+            var ayah = new MultiTranslationAyah
+            {
+                SurahNumber = request.SurahNumber,
+                AyahNumber = request.AyahNumber,
+                Translations = new Dictionary<string, string>(),
+                TranslationSegments = new Dictionary<string, List<string>>()
+            };
+
+            var failedTranslations = new List<string>();
+
+            // الحصول على النص العربي إذا كان مطلوباً
+            if (request.IncludeArabic)
+            {
+                var arabicData = await GetSingleAyahAsync(request.SurahNumber, request.AyahNumber, "quran-uthmani");
+                if (arabicData != null)
+                {
+                    ayah.ArabicText = GetTextFromAyahData(arabicData);
+                    ayah.SurahName = GetSurahNameFromAyahData(arabicData);
+                    ayah.SurahNameArabic = GetSurahNameArabicFromAyahData(arabicData);
+                    ayah.Page = GetPageFromAyahData(arabicData);
+                    ayah.Juz = GetJuzFromAyahData(arabicData);
+                    ayah.Hizb = GetHizbFromAyahData(arabicData);
+
+                    // تقسيم النص العربي
+                    ayah.ArabicSegments = _segmentationService.SmartSegment(ayah.ArabicText, "arabic");
+                }
+            }
+
+            // الحصول على الترجمات المطلوبة
+            foreach (var translation in request.Translations)
+            {
+                var translationKey = GetTranslationKey(translation);
+                if (string.IsNullOrEmpty(translationKey))
+                {
+                    failedTranslations.Add(translation);
+                    continue;
+                }
+
+                try
+                {
+                    var translationData = await GetSingleAyahAsync(request.SurahNumber, request.AyahNumber, translationKey);
+                    if (translationData != null)
+                    {
+                        var translationText = GetTextFromAyahData(translationData);
+                        ayah.Translations[translation] = translationText;
+
+                        // تقسيم الترجمة
+                        ayah.TranslationSegments[translation] = _segmentationService.SmartSegment(translationText, translation);
+                    }
+                    else
+                    {
+                        failedTranslations.Add(translation);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, $"Failed to fetch translation {translation} for Surah {request.SurahNumber}, Ayah {request.AyahNumber}");
+                    failedTranslations.Add(translation);
+                }
+            }
+
+            return new MultiTranslationResponse
+            {
+                Success = true,
+                Message = $"تم استرداد {ayah.Translations.Count} ترجمة بنجاح",
+                Ayah = ayah,
+                RequestInfo = request,
+                AvailableTranslations = GetAvailableTranslations(),
+                FailedTranslations = failedTranslations
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing multi-translation request");
+            return new MultiTranslationResponse
+            {
+                Success = false,
+                Message = "حدث خطأ أثناء معالجة طلب الترجمات المتعددة"
+            };
+        }
+    }
+
+    public async Task<bool> ValidateMushafRequestAsync(QuranMushafLinesRequest request)
+    {
+        try
+        {
+            // التحقق من الأرقام الأساسية
+            if (request.SurahNumber < 1 || request.SurahNumber > 114) return false;
+            if (request.HizbNumber < 1 || request.HizbNumber > 30) return false;
+            if (request.PageNumber < 1 || request.PageNumber > 604) return false;
+            if (request.LinesPerPage < 10 || request.LinesPerPage > 20) return false;
+
+            // التحقق من توفر الترجمة
+            var translationKey = GetTranslationKey(request.Translation ?? "english");
+            return !string.IsNullOrEmpty(translationKey);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> ValidateMultiTranslationRequestAsync(MultiTranslationRequest request)
+    {
+        try
+        {
+            // التحقق من الأرقام الأساسية
+            if (request.SurahNumber < 1 || request.SurahNumber > 114) return false;
+            if (request.AyahNumber < 1) return false;
+            if (!request.Translations.Any()) return false;
+
+            // التحقق من وجود السورة والآية
+            var response = await _httpClient.GetAsync($"ayah/{request.SurahNumber}:{request.AyahNumber}");
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task<JsonElement?> GetSingleAyahAsync(int surahNumber, int ayahNumber, string edition)
+    {
+        try
+        {
+            var url = $"ayah/{surahNumber}:{ayahNumber}/{edition}";
+            var response = await _httpClient.GetAsync(url);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning($"Failed to fetch ayah {surahNumber}:{ayahNumber} with edition {edition}");
+                return null;
+            }
+
+            var jsonContent = await response.Content.ReadAsStringAsync();
+            var data = JsonSerializer.Deserialize<JsonElement>(jsonContent);
+
+            if (data.TryGetProperty("data", out var dataElement))
+            {
+                return dataElement;
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error fetching single ayah {surahNumber}:{ayahNumber}");
+            return null;
+        }
+    }
+
+    private string GetTextFromAyahData(JsonElement? ayahData)
+    {
+        return ayahData.Value.TryGetProperty("text", out var textElement)
+            ? textElement.GetString() ?? "" : "";
+    }
+
+    private string GetSurahNameFromAyahData(JsonElement? ayahData)
+    {
+        return ayahData.Value.TryGetProperty("surah", out var surahElement) &&
+               surahElement.TryGetProperty("englishName", out var nameElement)
+            ? nameElement.GetString() ?? "" : "";
+    }
+
+    private string GetSurahNameArabicFromAyahData(JsonElement? ayahData)
+    {
+        return ayahData.Value.TryGetProperty("surah", out var surahElement) &&
+               surahElement.TryGetProperty("name", out var nameElement)
+            ? nameElement.GetString() ?? "" : "";
+    }
+
+    private int GetPageFromAyahData(JsonElement? ayahData)
+    {
+        return ayahData.Value.TryGetProperty("page", out var pageElement)
+            ? pageElement.GetInt32() : 0;
+    }
+
+    private int GetJuzFromAyahData(JsonElement? ayahData)
+    {
+        return ayahData.Value.TryGetProperty("juz", out var juzElement)
+            ? juzElement.GetInt32() : 0;
+    }
+
+    private int GetHizbFromAyahData(JsonElement? ayahData)
+    {
+        return ayahData.Value.TryGetProperty("hizbQuarter", out var hizbElement)
+            ? (hizbElement.GetInt32() + 3) / 4 : 0; // تحويل ربع الحزب إلى رقم الحزب
+    }
+
     public List<string> GetAvailableTranslations()
     {
         return _translations.Keys.ToList();

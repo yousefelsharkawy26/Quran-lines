@@ -1,5 +1,7 @@
 ﻿// Services/TextSegmentationService.cs
+using Quran.Models;
 using QuranLinesService.Services.Interfaces;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace QuranLinesService.Services;
@@ -245,4 +247,101 @@ public class TextSegmentationService : ITextSegmentationService
 
         return combined;
     }
+
+    public List<string> CombineSegmentsToMushafLine(List<string> segments, int targetLineLength = 60)
+    {
+        if (!segments.Any()) return new List<string>();
+
+        var mushafLines = new List<string>();
+        var currentLine = new StringBuilder();
+
+        foreach (var segment in segments)
+        {
+            // إذا كان إضافة هذا الجزء سيتجاوز الطول المطلوب
+            if (currentLine.Length + segment.Length + 1 > targetLineLength && currentLine.Length > 0)
+            {
+                mushafLines.Add(currentLine.ToString().Trim());
+                currentLine.Clear();
+            }
+
+            if (currentLine.Length > 0)
+                currentLine.Append(" ");
+
+            currentLine.Append(segment);
+        }
+
+        // إضافة السطر الأخير إذا كان هناك محتوى
+        if (currentLine.Length > 0)
+        {
+            mushafLines.Add(currentLine.ToString().Trim());
+        }
+
+        return mushafLines;
+    }
+
+    public List<MushafLine> CreateMushafLines(List<QuranLine> quranLines, int linesPerPage = 15)
+    {
+        var mushafLines = new List<MushafLine>();
+        var allArabicText = new List<string>();
+        var allTranslationText = new List<string>();
+        var ayahMapping = new List<(int ayahNumber, int startIndex, int endIndex)>();
+
+        // جمع كل النصوص مع تتبع الآيات
+        int currentIndex = 0;
+        for (int i = 0; i < quranLines.Count; i++)
+        {
+            var line = quranLines[i];
+            var arabicSegments = SmartSegment(line.ArabicText, "arabic", 10);
+            var translationSegments = SmartSegment(line.Translation, "english", 10);
+
+            int startIndex = currentIndex;
+            allArabicText.AddRange(arabicSegments);
+            allTranslationText.AddRange(translationSegments);
+            currentIndex += arabicSegments.Count;
+
+            ayahMapping.Add((i + 1, startIndex, currentIndex - 1));
+        }
+
+        // تجميع الجزئيات في سطور مصحف
+        var arabicMushafLines = CombineSegmentsToMushafLine(allArabicText, 70);
+        var translationMushafLines = CombineSegmentsToMushafLine(allTranslationText, 80);
+
+        // إنشاء سطور المصحف مع ربطها بالآيات
+        int maxLines = Math.Max(arabicMushafLines.Count, translationMushafLines.Count);
+        maxLines = Math.Min(maxLines, linesPerPage); // تحديد عدد السطور حسب المصحف
+
+        for (int lineIndex = 0; lineIndex < maxLines; lineIndex++)
+        {
+            var mushafLine = new MushafLine
+            {
+                LineNumber = lineIndex + 1,
+                ArabicLine = lineIndex < arabicMushafLines.Count ? arabicMushafLines[lineIndex] : "",
+                TranslationLine = lineIndex < translationMushafLines.Count ? translationMushafLines[lineIndex] : "",
+                SurahNumber = quranLines.FirstOrDefault()?.SurahNumber ?? 0,
+                SurahName = quranLines.FirstOrDefault()?.SurahName ?? "",
+                PageNumber = quranLines.FirstOrDefault()?.PageNumber ?? 0,
+                HizbNumber = quranLines.FirstOrDefault()?.HizbNumber ?? 0,
+                OriginalSegments = new List<string>(),
+                TranslationSegments = new List<string>(),
+                AyahNumbers = new List<int>(),
+                IsCompleteLine = true
+            };
+
+            // تحديد الآيات المرتبطة بهذا السطر (تقدير تقريبي)
+            int estimatedAyahsPerLine = Math.Max(1, quranLines.Count / maxLines);
+            int startAyah = lineIndex * estimatedAyahsPerLine + 1;
+            int endAyah = Math.Min(startAyah + estimatedAyahsPerLine - 1, quranLines.Count);
+
+            for (int ayah = startAyah; ayah <= endAyah; ayah++)
+            {
+                mushafLine.AyahNumbers.Add(ayah);
+            }
+
+            mushafLines.Add(mushafLine);
+        }
+
+        return mushafLines;
+    }
+
+
 }

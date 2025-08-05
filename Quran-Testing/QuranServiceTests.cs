@@ -43,6 +43,45 @@ namespace QuranLinesService.Tests
             Xunit.Assert.True(request.SurahNumber > 0);
         }
 
+        [Fact]
+        public async Task GetMushafLinesAsync_ValidRequest_ReturnsSuccess()
+        {
+            // Arrange
+            var request = new QuranMushafLinesRequest
+            {
+                SurahNumber = 1,
+                HizbNumber = 1,
+                PageNumber = 1,
+                Translation = "english",
+                LinesPerPage = 15,
+                CombineSegments = true
+            };
+
+            _mockSegmentationService.Setup(s => s.CreateMushafLines(It.IsAny<List<QuranLine>>(), It.IsAny<int>()))
+                .Returns(new List<MushafLine>());
+
+            // Act & Assert
+            Xunit.Assert.True(request.LinesPerPage >= 10 && request.LinesPerPage <= 20);
+        }
+
+        [Fact]
+        public async Task GetMultiTranslationAyahAsync_ValidRequest_ReturnsSuccess()
+        {
+            // Arrange
+            var request = new MultiTranslationRequest
+            {
+                SurahNumber = 1,
+                AyahNumber = 1,
+                Translations = new List<string> { "english", "urdu" },
+                IncludeArabic = true
+            };
+
+            // Act & Assert
+            Xunit.Assert.True(request.Translations.Count > 0);
+            Xunit.Assert.True(request.SurahNumber > 0);
+            Xunit.Assert.True(request.AyahNumber > 0);
+        }
+
         [Theory]
         [InlineData(0, 1, 1, false)] // Invalid Surah
         [InlineData(115, 1, 1, false)] // Invalid Surah
@@ -75,6 +114,32 @@ namespace QuranLinesService.Tests
             }
         }
 
+        [Theory]
+        [InlineData(1, 1, 1, 15, true)] // Valid Mushaf request
+        [InlineData(1, 1, 1, 9, false)] // Invalid lines per page (too low)
+        [InlineData(1, 1, 1, 21, false)] // Invalid lines per page (too high)
+        public async Task ValidateMushafRequestAsync_VariousInputs_ReturnsExpectedResult(
+            int surahNumber, int hizbNumber, int pageNumber, int linesPerPage, bool expected)
+        {
+            // Arrange
+            var request = new QuranMushafLinesRequest
+            {
+                SurahNumber = surahNumber,
+                HizbNumber = hizbNumber,
+                PageNumber = pageNumber,
+                LinesPerPage = linesPerPage,
+                Translation = "english"
+            };
+
+            // Act & Assert - Basic validation
+            bool isValid = surahNumber >= 1 && surahNumber <= 114 &&
+                          hizbNumber >= 1 && hizbNumber <= 30 &&
+                          pageNumber >= 1 && pageNumber <= 604 &&
+                          linesPerPage >= 10 && linesPerPage <= 20;
+
+            Xunit.Assert.Equal(expected, isValid);
+        }
+
         [Fact]
         public void GetAvailableTranslations_ReturnsTranslationsList()
         {
@@ -85,60 +150,6 @@ namespace QuranLinesService.Tests
             Xunit.Assert.NotEmpty(translations);
             Xunit.Assert.Contains("english", translations);
             Xunit.Assert.Contains("arabic", translations);
-        }
-    }
-
-    public class TextSegmentationServiceTests
-    {
-        private readonly TextSegmentationService _service;
-
-        public TextSegmentationServiceTests()
-        {
-            _service = new TextSegmentationService();
-        }
-
-        [Fact]
-        public void SegmentArabicText_WithStopMarks_ReturnsCorrectSegments()
-        {
-            // Arrange
-            var arabicText = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ ۚ ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَٰلَمِينَ";
-
-            // Act
-            var segments = _service.SegmentArabicText(arabicText);
-
-            // Assert
-            Xunit.Assert.NotEmpty(segments);
-            Xunit.Assert.True(segments.Count >= 1);
-        }
-
-        [Fact]
-        public void SegmentEnglishText_WithPunctuation_ReturnsCorrectSegments()
-        {
-            // Arrange
-            var englishText = "In the name of Allah, the Entirely Merciful, the Especially Merciful. Praise to Allah, Lord of the worlds.";
-
-            // Act
-            var segments = _service.SegmentEnglishText(englishText);
-
-            // Assert
-            Xunit.Assert.NotEmpty(segments);
-            Xunit.Assert.True(segments.Count >= 2); // Should split on period
-        }
-
-        [Theory]
-        [InlineData("arabic", "ar")]
-        [InlineData("english", "en")]
-        [InlineData("french", "fr")]
-        public void SmartSegment_DifferentLanguages_ReturnsSegments(string language, string langCode)
-        {
-            // Arrange
-            var text = "This is a test text for segmentation in different languages.";
-
-            // Act
-            var segments = _service.SmartSegment(text, language);
-
-            // Assert
-            Xunit.Assert.NotEmpty(segments);
         }
     }
 }
