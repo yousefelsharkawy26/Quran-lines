@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "Quran\\Quran.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "Quran-Examples\\Quran-Examples.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

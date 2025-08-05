@@ -1,0 +1,6 @@
+@Quran_HostAddress = http://localhost:5176
+
+GET {{Quran_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

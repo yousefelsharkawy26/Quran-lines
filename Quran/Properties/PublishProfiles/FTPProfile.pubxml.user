@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- https://go.microsoft.com/fwlink/?LinkID=208121. -->
+<Project>
+  <PropertyGroup>
+    <TimeStampOfAssociatedLegacyPublishXmlFile />
+    <EncryptedPassword>AQAAANCMnd8BFdERjHoAwE/Cl+sBAAAAaNh+aw4DhkiDbPDCVmMk6QAAAAACAAAAAAAQZgAAAAEAACAAAABxIN2E0D2/Iwp7BsfsZUJ/hk51zPzwB6G2DznKFWfSiAAAAAAOgAAAAAIAACAAAACG55Y5MPn1v1sGnm7uiUdpcIUv9EZhS+0FcgxUMjUsBSAAAADgryCiITxMcmveulgm3ewJRHQ82BZoQjN4vMQJhlaP/UAAAAAQY7ScMrqjbGVtrSmYDjDNcCuTmFRYeM0+x1T/Pv/oJRydsbmvYOkFLTGutuWzFoYxbZLc92hsf9BI37cPz6Af</EncryptedPassword>
+    <History>False|2025-08-05T00:39:00.6142904Z||;False|2025-08-05T02:56:33.1432807+03:00||;False|2025-08-05T02:26:29.7392815+03:00||;False|2025-08-05T02:08:55.1844203+03:00||;False|2025-08-05T01:00:40.4406855+03:00||;False|2025-08-05T00:57:33.1510423+03:00||;</History>
+    <LastFailureDetails />
+    <_PublishTargetUrl>ftp://quran-lines.somee.com/www.quran-lines.somee.com</_PublishTargetUrl>
+  </PropertyGroup>
+  <ItemGroup>
+    <File Include="Microsoft.Extensions.Configuration.Abstractions.dll">
+      <publishTime>06/16/2025 21:47:58</publishTime>
+    </File>
+    <File Include="Microsoft.Extensions.Configuration.Binder.dll">
+      <publishTime>06/16/2025 21:48:00</publishTime>
+    </File>
+    <File Include="Microsoft.Extensions.Configuration.dll">
+      <publishTime>06/16/2025 21:48:02</publishTime>
+    </File>
+    <File Include="Microsoft.Extensions.DependencyInjection.dll">
+      <publishTime>06/16/2025 21:47:50</publishTime>
+    </File>
+    <File Include="Microsoft.Extensions.Diagnostics.Abstractions.dll">
+      <publishTime>06/16/2025 21:47:52</publishTime>
+    </File>
+    <File Include="Microsoft.Extensions.Logging.Abstractions.dll">
+      <publishTime>06/16/2025 21:47:54</publishTime>
+    </File>
+    <File Include="Microsoft.Extensions.Logging.Console.dll">
+      <publishTime>06/16/2025 21:48:16</publishTime>
+    </File>
+    <File Include="Quran.deps.json">
+      <publishTime>08/05/2025 01:50:28</publishTime>
+    </File>
+    <File Include="Quran.dll">
+      <publishTime>08/05/2025 03:11:07</publishTime>
+    </File>
+    <File Include="Quran.staticwebassets.endpoints.json">
+      <publishTime>08/05/2025 01:51:48</publishTime>
+    </File>
+    <File Include="Swashbuckle.AspNetCore.Swagger.dll">
+      <publishTime>07/08/2025 17:04:50</publishTime>
+    </File>
+  </ItemGroup>
+</Project>
