@@ -43,8 +43,8 @@ dotnet run
 ```
 
 ### 3. الوصول للـ API
-- Swagger UI: `https://localhost:7000`
-- API Base URL: `https://localhost:7000/api/quran`
+- Swagger UI: `https://localhost:7234`
+- API Base URL: `https://localhost:7234/api/quran`
 
 ## API Endpoints 📚
 
@@ -259,3 +259,4 @@ docker run -p 8080:80 quran-lines-service
 - **API Status**: تحقق من `/health` endpoint
 
 **صُنع بـ ❤️ لخدمة القرآن الكريم**
+
